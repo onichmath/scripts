@@ -66,28 +66,33 @@ cat << "EOF" > /workspace/custom_llama3_openai_tools.jinja
     {%- if not (message.role == "ipython" or message.role == "tool" or "tool_calls" in message) -%}
         {{- "<|start_header_id|>" + message["role"] + "<|end_header_id|>\n\n" + message["content"] | trim + "<|eot_id|>" -}}
     {%- elif "tool_calls" in message -%}
-        {%- set tool_call = message.tool_calls[0].function -%}
-        {%- if builtin_tools is defined and tool_call.name in builtin_tools -%}
-            {{- "<|start_header_id|>assistant<|end_header_id|>\n\n" -}}
-            {{- "<|python_tag|>" + tool_call.name + ".call(" -}}
-            {%- for (arg_name, arg_val) in tool_call.arguments | items -%}
-                {{- arg_name + "=\"" + arg_val + "\"" -}}
-                {%- if not loop.last -%}
-                    {{- ", " -}}
+    {# Allow 0, 1, or many tool calls without crashing #}
+        {%- if message.tool_calls is defined and (message.tool_calls | length) > 0 -%}
+            {%- for tc in message.tool_calls -%}
+                {%- set tool_call = tc.function -%}
+                {%- if builtin_tools is defined and tool_call.name in builtin_tools -%}
+                    {{- "<|start_header_id|>assistant<|end_header_id|>\n\n" -}}
+                    {{- "<|python_tag|>" + tool_call.name + ".call(" -}}
+                    {%- for (arg_name, arg_val) in tool_call.arguments | items -%}
+                        {{- arg_name + "=\"" + arg_val + "\"" -}}
+                        {%- if not loop.last -%}
+                            {{- ", " -}}
+                        {%- endif -%}
+                    {%- endfor -%}
+                    {{- ")" -}}
+                {%- else -%}
+                    {{- "<|start_header_id|>assistant<|end_header_id|>\n\n" -}}
+                    {{- "{\"name\": \"" + tool_call.name + "\", " -}}
+                    {{- "\"parameters\": " -}}
+                    {{- tool_call.arguments | tojson -}}
+                    {{- "}" -}}
+                {%- endif -%}
+                {%- if builtin_tools is defined -%}
+                    {{- "<|eom_id|>" -}}
+                {%- else -%}
+                    {{- "<|eot_id|>" -}}
                 {%- endif -%}
             {%- endfor -%}
-            {{- ")" -}}
-        {%- else -%}
-            {{- "<|start_header_id|>assistant<|end_header_id|>\n\n" -}}
-            {{- "{\"name\": \"" + tool_call.name + "\", " -}}
-            {{- "\"parameters\": " -}}
-            {{- tool_call.arguments | tojson -}}
-            {{- "}" -}}
-        {%- endif -%}
-        {%- if builtin_tools is defined -%}
-            {{- "<|eom_id|>" -}}
-        {%- else -%}
-            {{- "<|eot_id|>" -}}
         {%- endif -%}
     {%- elif message.role == "tool" or message.role == "ipython" -%}
         {{- "<|start_header_id|>ipython<|end_header_id|>\n\n" -}}
