@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 
-# Write the template
+mkdir -p /workspace
+
+echo "\n\n\n\n\n\n"
+echo "Writing template to /workspace/custom_llama3_openai_tools.jinja"
 cat << "EOF" > /workspace/custom_llama3_openai_tools.jinja
 {{- bos_token -}}
 {%- if custom_tools is defined -%}
